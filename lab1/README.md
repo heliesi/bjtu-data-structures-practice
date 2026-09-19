@@ -18,6 +18,30 @@
 
 建议分几次完成：第一次到 Q6，第二次到 Q11，第三次到 Q16。Q17 是图片中的加分扩展。耗时取决于你对 C++ 的熟悉程度，不必用速度衡量学习效果。
 
+### 检测覆盖表
+
+为了避免“写完了但不知道是否真的测到了”，本讲义把检测分成两类：
+
+| 题目 | 检测方式 | 是否有可运行检查 |
+| --- | --- | --- |
+| Q0 | 编译并运行 `Hello, Lab 1!` | 有 |
+| Q1～Q2 | 预测、画图、口头解释 | 手工检查 |
+| Q3 | `assert` 检查头节点和空链表 | 有 |
+| Q4 | 检查追加后的节点顺序和尾指针 | 有 |
+| Q5 | 检查空表、一个节点、多个节点的长度和打印 | 有，见 Q5；释放在 Q6 补上 |
+| Q6 | 检查清空、重新使用、销毁和重复销毁 | 有 |
+| Q7 | 检查升序和排序前后长度 | 有，见 Q7 |
+| Q8 | 检查连续重复值和重复调用 | 有 |
+| Q9～Q11 | `CheckSets` 分别检查并集、交集、差集及输入不变 | 有 |
+| Q12 | 检查空圈、自环、编号顺序和只走一圈 | 有 |
+| Q13 | 检查删除 1 号、连续删除和释放最后节点 | 有 |
+| Q14 | 纸上模拟报数位置 | 手工检查 |
+| Q15 | 检查多个 N、M、非法参数和出圈顺序 | 有 |
+| Q16 | 按固定输入手工演示端到端流程 | 手工检查 |
+| Q17 | 固定密码的确定性测试，随机版检查范围和释放 | 有，见 Q17 |
+
+自动检测并不能代替画图：它告诉你结果是否符合预期，画图才能帮助你理解哪个指针被改变了。
+
 ## 先把老师的要求读准确
 
 两张图片描述的是同一个专题下的两个题目：
@@ -239,6 +263,25 @@ void Subs(const slink* la, const slink* lb, slink* lc);
 
 `.h` 是接口清单，告诉其他文件“有什么函数、怎么调用”；`.cpp` 放函数实现。`#pragma once` 避免同一个头文件重复引入。`const slink*` 表示不能通过这个指针直接修改它指向的节点；它不是整条链表的深度只读保护，函数仍需遵守“不修改输入”的约定。
 
+**接口必须逐字一致。** C++ 区分大小写，`ClearList` 和 `clearList` 是两个不同的函数；本文统一使用大写开头的 `ClearList`。如果你的代码写成了 `clearList`，请同时修改头文件、函数定义和所有调用处。`PrintList` 的声明和定义也必须都写成 `const slink*`：
+
+```cpp
+// SinglyLinkedList.h
+void PrintList(const slink* L);
+void ClearList(slink* L);
+
+// SinglyLinkedList.cpp
+void PrintList(const slink* L) {
+    // ...
+}
+
+void ClearList(slink* L) {
+    // ...
+}
+```
+
+只在头文件里声明，或只修改函数名的一处，都不能算完成；编译时会出现“未定义函数”或“声明与定义冲突”。
+
 新建 `SinglyLinkedList.cpp`，先只完成这个小骨架：
 
 ```cpp
@@ -352,6 +395,16 @@ int Length(const slink* L) {
 
 `PrintList` 使用相同的移动方式，把“加一”替换成“输出数据”。格式控制可以设置 `bool first = true`：如果当前不是第一个元素，先输出逗号，再输出数据。
 
+实现 `PrintList` 时，函数头要和头文件完全一致：
+
+```cpp
+void PrintList(const slink* L) {
+    // 只读取 L，不修改链表
+}
+```
+
+不要在 `.cpp` 中写成 `void PrintList(slink* L)`。这会形成另一个重载函数，头文件中的 `const` 版本仍然没有实现；如果 main 调用的是 const 版本，链接时可能出现未定义函数。
+
 **先预测：** 对于含三个数据节点的链表，下面两种条件分别会处理几个节点？
 
 ```cpp
@@ -367,7 +420,38 @@ while (p->next != nullptr) { /* 处理并移动 p */ }
 
 </details>
 
-在 main 中验证空表长度为 0，追加三个数后长度为 3，并检查打印的顺序。再打印第二次，确认第一次遍历没有把链表弄丢。
+在 main 中加入下面的检测。它同时覆盖空表、一个节点、多个节点，以及“打印之后链表仍然存在”：
+
+```cpp
+{
+    slink* empty = InitList();
+    assert(Length(empty) == 0);
+    PrintList(empty); // 预期：{}
+    // DestroyList 属于 Q6；完成 Q6 后再取消下一行注释。
+    // DestroyList(empty);
+}
+
+{
+    slink* L = InitList();
+    Append(L, 7);
+    assert(Length(L) == 1);
+    PrintList(L); // 预期：{7}
+
+    Append(L, 2);
+    Append(L, 5);
+    assert(Length(L) == 3);
+    PrintList(L); // 预期：{7, 2, 5}
+    const slink* readOnly = L;
+    PrintList(readOnly); // 预期仍是 {7, 2, 5}，同时检查 const 接口
+
+    // DestroyList 属于 Q6；完成 Q6 后再取消下一行注释。
+    // DestroyList(L);
+}
+```
+
+Q5 的长度和打印断言可以在 Q5 完成后检查；这段完整代码中的 `DestroyList` 调用依赖 Q6。若你还没有完成 Q6，可以先把两行 `DestroyList` 暂时注释，或完成 Q6 后再运行整段测试。长期运行测试时不要保留注释，否则会泄漏本次测试创建的节点。
+
+如果空表的 `Length` 或 `PrintList` 崩溃，优先检查是否在确认 `p != nullptr` 之前访问了 `p->next` 或 `p->data`。
 
 **检查点 B2：** `PrintList` 没有输出头节点的 0，`Length` 没有多算一个节点。
 
@@ -499,6 +583,31 @@ void Sort(slink* L) {
 | `{3, 2, 1}` | `{1, 2, 3}` |
 | `{7, 2, 5, 2}` | `{2, 2, 5, 7}` |
 | `{0, -3, 4, -3}` | `{-3, -3, 0, 4}` |
+
+把下面的测试放在 Q7 的实现之后、Q8 的 `ExpectList` 之前。它不依赖 Q8：
+
+```cpp
+{
+    slink* L = InitList();
+    for (int x : {7, 2, 5, 2, -1}) {
+        Append(L, x);
+    }
+
+    int before = Length(L);
+    Sort(L);
+    assert(Length(L) == before); // Sort 只排序，不删节点
+
+    const slink* p = L->next;
+    while (p != nullptr && p->next != nullptr) {
+        assert(p->data <= p->next->data);
+        p = p->next;
+    }
+
+    DestroyList(L);
+}
+```
+
+这段检测了“结果有序”和“节点数量没有改变”。它还包含重复值和负数，能避免只用 `{1, 2, 3}` 导致测试过于简单。
 
 **检查点 C0：** 排序后长度没有改变。能解释“已经处理过的位置，保存了这一部分应有的最小值”。这种每轮成立的事实，叫作循环不变式。
 
@@ -781,6 +890,19 @@ CheckSets({1, 2}, {1, 2, 3}, {1, 2}, {1, 2, 3}, {1, 2, 3}, {1, 2}, {});
 
 再自己补一组交换 A、B 的差集测试。不要只确认 `A - B`，也手算一次 `B - A`。
 
+这些检测与题目的对应关系是：
+
+| 检测场景 | 主要检查 |
+| --- | --- |
+| 两个空集 | Q9～Q11 的空指针移动和空结果 |
+| A 为空或 B 为空 | 并集复制剩余部分，差集只保留 A 的剩余部分，交集为空 |
+| 两个集合完全相同 | 并集不重复，交集完整，差集为空 |
+| 完全不相交 | 并集完整，交集为空，差集等于 A |
+| 输入有重复、无序、负数和 0 | Q7、Q8 的预处理，以及 Q9～Q11 的正常工作 |
+| A、B 释放后仍检查 C | 结果是否真正申请了独立节点 |
+
+如果 Q9、Q10 或 Q11 单独失败，不要只看最终输出。先把 `CheckSets` 中三个调用分开运行：先只保留 `Union`，再只保留 `InerSect`，最后只保留 `Subs`，这样能确定是哪一个合并循环出错。
+
 **检查点 C4：** 能解释三种运算各自遇到“小于、等于、大于”时做什么，且能说明哪一种需要复制哪一边的剩余值。
 
 #### 到这里，复杂度应该怎样讲
@@ -880,6 +1002,7 @@ clang++ -std=c++17 -Wall -Wextra -pedantic -g SinglyLinkedList.cpp CircularLinke
 
 ```cpp
 assert(CreateCircle(0) == nullptr);
+PrintCircle(nullptr); // 预期：{}
 {
     MonkeyNode* tail = CreateCircle(1);
     assert(tail != nullptr);
@@ -948,9 +1071,16 @@ assert(CreateCircle(0) == nullptr);
     assert(prev == nullptr);
     DestroyCircle(prev); // 空圈重复销毁应安全
 }
+
+{
+    MonkeyNode* entry = CreateCircle(4);
+    DestroyCircle(entry);
+    assert(entry == nullptr);
+    DestroyCircle(entry); // 再次销毁空圈也应安全
+}
 ```
 
-再创建一个 4 节点圈，只调用 `DestroyCircle`，确认最后指针为空。回到 Q12，把测试中暂缺的清理补上。
+这组测试专门检查 `DestroyCircle` 是否能从非空循环链表释放到最后一个节点，并把调用者的指针设为 `nullptr`。回到 Q12，把创建圈的测试中暂缺的清理补上。
 
 **检查点 D1：** 能正确删除第一个编号、连续删除到单节点，并最终释放最后一只猴子。没有保留并继续使用指向已删节点的旧指针。
 
@@ -1011,7 +1141,8 @@ int Josephus(int n, int m) {
     // 每轮：让 prev 前进 m - 1 步，然后 RemoveAfter(prev)。
     // 调试时可以输出 RemoveAfter 的返回值，观察出圈顺序。
 
-    // TODO：保存最后一只的编号，释放它，再返回编号。
+    // TODO：只剩一只时，调用 RemoveAfter(prev) 删除最后节点，
+    // 保存它返回的编号并返回。RemoveAfter 会把 prev 置为 nullptr。
     return 0; // 占位，完成后替换；合法猴王编号不会是 0
 }
 ```
@@ -1028,7 +1159,7 @@ int Josephus(int n, int m) {
 <details>
 <summary>提示 2：怎样收尾？</summary>
 
-`RemoveAfter` 已经支持单节点情况，并返回被删除节点的编号。只剩一只时，它的返回值就是猴王编号，调用后 prev 也应为空。不要释放后再读 `prev->id`。
+`RemoveAfter` 已经支持单节点情况，并返回被删除节点的编号。循环结束后调用一次 `RemoveAfter(prev)`，它返回的就是猴王编号，同时负责释放最后一个节点并把 prev 置为 `nullptr`。不要先 `delete prev`，再尝试读取 `prev->id`。
 
 </details>
 
@@ -1064,16 +1195,21 @@ assert(Josephus(10, 3) == 4);
 再检查非法参数契约：
 
 ```cpp
-bool rejected = false;
-try {
-    Josephus(0, 3);
-} catch (const std::invalid_argument&) {
-    rejected = true;
-}
-assert(rejected);
+auto rejects = [](int n, int m) {
+    try {
+        Josephus(n, m);
+    } catch (const std::invalid_argument&) {
+        return true;
+    }
+    return false;
+};
+
+assert(rejects(0, 3));
+assert(rejects(3, 0));
+assert(rejects(-1, 2));
 ```
 
-随后分别用 `(3, 0)`、`(-1, 2)` 测试。`try/catch` 在这里的作用只是检查“函数是否拒绝了这个输入”。
+`try/catch` 在这里的作用只是检查“函数是否拒绝了这个输入”。
 
 **检查点 D3：** 输出编号正确，最后一个节点也被释放。基础模拟的时间为 O(NM)，建圈 O(N)，占用 O(N) 节点空间。
 
@@ -1274,7 +1410,21 @@ password 放在末尾并有默认值，因此已有的 `new MonkeyNode{id, nullp
 | 4 | 2 |
 | 5 | 5 |
 
-初始报数上限为 2，请手算，再写 `JosephusWithPasswords`。测试用密码可以由一个 `std::initializer_list<int>` 参数传入；节点仍需由循环链表保存和删除。
+为了让函数接口和检测明确，先在 `main.cpp` 中声明：
+
+```cpp
+int JosephusWithPasswords(
+    int initialM,
+    std::initializer_list<int> passwords);
+```
+
+这里 `passwords` 的长度就是猴子数量 N，列表中的第一个值属于 1 号猴子。约定 `initialM > 0`，密码列表非空，且每个密码都大于 0；不满足时抛出 `std::invalid_argument`。如果 main 中还没有使用过 `std::initializer_list`，请补上：
+
+```cpp
+#include <initializer_list>
+```
+
+初始报数上限为 2，请手算，再实现 `JosephusWithPasswords`。节点仍需由循环链表保存和删除。
 
 <details>
 <summary>固定密码例子的核对结果</summary>
@@ -1284,6 +1434,32 @@ password 放在末尾并有默认值，因此已有的 `new MonkeyNode{id, nullp
 出圈顺序是 `2, 3, 4, 1`，各轮报数上限是 `2, 1, 4, 2`。
 
 </details>
+
+把下面的确定性测试放在基础版测试之后：
+
+```cpp
+assert(JosephusWithPasswords(2, {3, 1, 4, 2, 5}) == 5);
+```
+
+这一个测试同时检查：初始报数上限、按照退出猴子的密码切换下一轮上限、循环链表的出圈顺序，以及最后一只猴子的释放。调试时应额外输出并核对：
+
+```text
+出圈顺序：2, 3, 4, 1
+各轮上限：2, 1, 4, 2
+猴王：5
+```
+
+再加入非法输入测试：
+
+```cpp
+bool rejected = false;
+try {
+    JosephusWithPasswords(0, {3, 1, 4});
+} catch (const std::invalid_argument&) {
+    rejected = true;
+}
+assert(rejected);
+```
 
 实现时只比基础版多一个关键步骤：**删除前**读取 `prev->next->password` 并保存下来，删除后再把当前报数上限更新为它。现有 RemoveAfter 仍然可以只返回编号。
 
@@ -1361,7 +1537,7 @@ std::uniform_int_distribution<int> passwordRange(1, 9);
 
 ## 参考阅读与本讲义的改编方式
 
-以下链接来自课程官方站点或官方历史课程站点，查阅日期为 2026-09-18。CS61A 历史页面在本次直连读取中有访问失败，相关题目结构通过搜索服务提供的官方页面内容核对；CS61B 页面可直接读取。课程网站后续可能调整路径。
+以下链接来自课程官方站点或官方历史课程站点，查阅日期为 2026-09-19。CS61A 历史页面在本次直连读取中有访问失败，相关题目结构通过搜索服务提供的官方页面内容核对；CS61B 页面可直接读取。课程网站后续可能调整路径。
 
 - [CS61A Fall 2023 · Lab 8: Linked Lists](https://www-inst.eecs.berkeley.edu/~cs61a/fa23/lab/lab08/)：参考先预测输出、再完成小函数、配合例子与提示的练习组织；本讲义 Q1 使用原创 C++ 指针预测题。
 - [CS61B Fall 2026 · Lab 3: Linked Lists](https://fa26.datastructur.es/labs/lab03/)：参考逐行画方框箭头图、区分修改原链表与生成新链表、明确头节点作用的方法；本讲义应用于 Q3、Q9 和循环链表练习。
